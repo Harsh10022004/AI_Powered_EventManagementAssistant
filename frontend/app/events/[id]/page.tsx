@@ -60,7 +60,7 @@ export default function EventDashboardPage() {
             eventId={event._id}
             messages={messages}
             onResult={(res: any) => {
-              if (res.usedFallback) setFallbackNotice(true);
+              setFallbackNotice(!!res.usedFallback);
               setData((prev) =>
                 prev
                   ? {
