@@ -1,4 +1,5 @@
 const Groq = require("groq-sdk");
+const { ExtractionSchema } = require("./extractionSchema");
 
 // ---------------------------------------------------------------------------
 // AI extraction pipeline (Groq).
@@ -129,7 +130,21 @@ async function extract({ message, event, tasks, vendors }) {
 
     const text = completion.choices[0]?.message?.content;
     if (!text) return null;
-    return JSON.parse(text);
+
+    const raw = JSON.parse(text);
+
+    // Validate the AI's output against the schema the rest of the pipeline
+    // expects, right here at the source - before a malformed field can reach
+    // the database or crash a downstream loop. A failure here logs exactly
+    // which field was wrong and falls back to the offline extractor, rather
+    // than surfacing as a cryptic Mongoose validation error several steps
+    // later.
+    const result = ExtractionSchema.safeParse(raw);
+    if (!result.success) {
+      console.error("[aiService] Groq response failed schema validation, falling back:", result.error.issues);
+      return null;
+    }
+    return result.data;
   } catch (err) {
     console.error("[aiService] Groq extraction failed, falling back:", err.message);
     return null;
